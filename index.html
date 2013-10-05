@@ -1,0 +1,242 @@
+<!doctype html>
+<html>
+	<head>
+		<title>GAP (2013)</title>
+		<script src="/socket.io/socket.io.js"></script>
+		<script src="js/jquery.js"></script>
+		<script src="tuna/tuna.js"></script>
+		<script src="js/gibberish_2.0.min.js"></script>
+		<script src="js/nexusUI.js"></script>
+		<meta name="viewport" content="width=device-width">
+	</head>
+	<body>
+		
+		
+		
+		<!-- THIS IS THE VISUAL PART (HTML) -->
+		
+		<canvas nx="tilt" style="float:left;height:50px;width:50px"></canvas>&nbsp;
+		<canvas nx="select" choices="1,2,3,4" style="height:50px;width:50px"></canvas><br><br>
+		
+		
+		<canvas id="wave1" style="width:300px;height:100px;"></canvas>
+		<div style="width:300px;height:100px;background-color:pink"></div>
+		<canvas id="wave2" style="width:300px;height:100px;"></canvas>
+		
+		<div id="debug"></div>
+		
+		
+		<!-- THIS IS THE JAVASCRIPT BRAIN -->
+		
+		<script>
+
+			var socket = io.connect('http://192.168.1.219:8080');
+			var freq = 500;
+			var playerNum = 0;
+			
+			nx.onload = function() {
+				
+				nx.colorize("#1cd");
+				nx.setTransmissionProtocol("local");
+				
+				tilt1.localTransmit = function(data) {
+					
+					if (data[0]>0.3) {
+						freq += Math.pow((data[0]*10),2)/5;
+					} else if (data[0]<-0.3) {
+						freq += Math.pow((data[0]*10),2)/(-5);
+						
+					}
+				//	$("#debug").html(freq);
+					
+					var myinfo = [freq, data[1], playerNum]
+					
+					socket.emit('tiltdata', myinfo);
+					//calculateMe(data);
+				}
+				
+				select1.localTransmit = function(data){
+					playerNum = data;
+					intervalL = intervals[playerNum%4];
+					intervalR = intervals[playerNum-1];
+					effectL = effects[playerNum%4];
+					effectR = effects[playerNum-1];
+					nonEffect1 = effects[(playerNum+1)%4];
+					nonEffect2 = effects[(playerNum+2)%4];
+				}
+				
+			}
+			
+		var personL = false;
+		var personR = false;
+		var intervalL, intervalR;
+		var effectL, effectR, nonEffect1, nonEffect2;
+		var proxL, proxR;
+		var intervals = [0.125, 3, 1.667, 1.6];
+		var effects = [am, fm1, fm2, oct];
+		var maxedOut = false;
+		
+		// effectL and effectR follow proxes, others ramp if near 1
+		// how near? <0.05 apart
+		// ramps back down when leave
+		
+			
+		socket.on('sharetilt', function (data) {
+			//data[0] is x freq, data [1] is amp, 
+			//data[2] is player num
+			//console.log(data[2]);
+			if (data[2]%4==playerNum-1) {
+				//if data is 4, player is 1
+				personR = data;
+			}
+			if (data[2]-1==playerNum%4) {
+				personL = data;
+			}
+			if (personR && personL) {
+				proxR = 1-Math.abs(((freq/personR[0])/intervalR)-1);
+				proxL = 1-Math.abs(((personL[0]/freq)/intervalL)-1);
+				nx.clip(proxR, 0, 1);
+				nx.clip(proxL, 0, 1);
+				$("#debug").html("freq: "+freq+"<br>proxL: "+proxL+"<br>proxR: "+proxR);
+				
+				var myEffects = [
+						{
+							"type": effectL, 
+							"value": proxL
+						},
+						{
+							"type": effectR, 
+							"value": proxR
+						}
+					
+				]
+				socket.emit('sendeffects', myEffects);
+				
+				if (proxL>0.95 || proxR>0.95) {
+					if (!maxedOut) {
+						var myEffects = [
+							{
+								"type": nonEffect1, 
+								"value": 1
+							},
+							{
+								"type": nonEffect2, 
+								"value": 1
+							}
+						
+						]
+						socket.emit('sendeffects', myEffects);
+						maxedOut = true;
+					}
+				} else {
+					if (maxedOut) {
+						var myEffects = [
+							{
+								"type": nonEffect1, 
+								"value": 0
+							},
+							{
+								"type": nonEffect2, 
+								"value": 0
+							}
+						
+						]
+						socket.emit('sendeffects', myEffects);
+						maxedOut = false;
+					}
+					
+				}
+			}
+			
+		});
+		
+		
+		
+		// DRAWING
+		
+		var canvas1 = document.getElementById("wave1");
+		var ctx1 = canvas1.getContext("2d");
+		var canvas2 = document.getElementById("wave2");
+		var ctx2 = canvas2.getContext("2d");
+		
+		canvas1.width = 300;
+		canvas1.height = 100;
+		canvas2.width = 300;
+		canvas2.height = 100;
+		
+		ctx1.lineWidth = 3;
+		ctx1.strokeStyle = "#ec2";
+		ctx2.lineWidth = 3;
+		ctx2.strokeStyle = "#4ae";
+		
+		var waveOffset = 0;
+		var waveOffset2 = 0;
+		var waveOffsetA = 0;
+		var waveOffsetA2 = 0;
+		
+		function pulse() {
+		
+			ctx1.clearRect(0,0,canvas1.width,canvas1.height);
+			ctx2.clearRect(0,0,canvas2.width,canvas2.height);
+			
+			ctx1.beginPath();
+			ctx1.moveTo(0,0);
+			
+			for (var i=0;i<canvas1.width;i++) {
+				var ptx = i;
+				var pty = Math.sin(i/3+waveOffset)*((proxL-1)*20)+50;
+				ctx1.lineTo(ptx,pty);
+			}
+			
+			ctx1.moveTo(0,0);
+			
+			
+			for (var i=0;i<canvas1.width;i++) {
+				var ptx = i;
+				var pty = Math.sin(i/5+waveOffset2)*((proxL-1)*20)+50;
+				ctx1.lineTo(ptx,pty);
+			}
+			
+			ctx1.stroke();
+			ctx1.closePath();
+			
+			waveOffset += 0.1;
+			waveOffset2 += 0.2;
+			
+			
+			ctx2.beginPath();
+			ctx2.moveTo(0,0);
+			
+			for (var i=0;i<canvas2.width;i++) {
+				var ptx = i;
+				var pty = Math.sin(i/3+waveOffsetA)*((proxR-1)*20)+50;
+				ctx2.lineTo(ptx,pty);
+			}
+			
+			ctx2.moveTo(0,0);
+			
+			
+			for (var i=0;i<canvas2.width;i++) {
+				var ptx = i;
+				var pty = Math.sin(i/5+waveOffsetA2)*((proxR-1)*20)+50;
+				ctx2.lineTo(ptx,pty);
+			}
+			
+			ctx2.stroke();
+			ctx2.closePath();
+			
+			waveOffsetA += 0.1;
+			waveOffsetA2 += 0.2;
+		
+		}
+		
+		var aniPulse = setInterval("pulse()", 30);
+
+			
+		
+		</script>
+		
+		
+				
+	</body>
+</html>
