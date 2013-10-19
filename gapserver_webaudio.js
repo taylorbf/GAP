@@ -9,17 +9,6 @@
 var express = require('express');
 var app = express.createServer(express.static(__dirname));
 var io = require('socket.io').listen(app);
-var osc = require('node-osc');
-
-// var client = new osc.Client('192.168.1.219', 3333);
-// client.send('/lala', 5);
-
-var clients = [
-	new osc.Client('10.0.1.101', 3333),
-	new osc.Client('10.0.1.102', 3333),
-	new osc.Client('10.0.1.103', 3333),
-	new osc.Client('10.0.1.104', 3333)
-];
 
 var hostlocation;
 
@@ -57,14 +46,14 @@ io.sockets.on('connection', function (socket) {
 
 	socket.on('tiltdata', function (data) {
 		io.sockets.emit('sharetilt', data);
-		clients[data[3]].send('/tilty', data[0]);
-		clients[data[3]].send('/tiltx', data[1]);
+	//	clients[data[3]].send('/tilty', data[0]);
+	//	clients[data[3]].send('/tiltx', data[1]);
 	});
 	
 	socket.on('sendeffects', function (data) {
 		for (var i=0;i<data.length;i++) {
-			clients[data.player].send('/'+data.type, data.value);
-			clients[data.player].send('/'+data.type, data.value);
+		//	clients[data.player].send('/'+data.type, data.value);
+		//	clients[data.player].send('/'+data.type, data.value);
 		}
 	});
 	

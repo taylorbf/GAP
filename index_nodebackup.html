@@ -4,7 +4,7 @@
 		<title>GAP (2013)</title>
 		<script src="/socket.io/socket.io.js"></script>
 		<script src="js/jquery.js"></script>
-	<!--	<script src="tuna/tuna.js"></script> -->
+		<script src="tuna/tuna.js"></script>
 		<script src="js/gibberish_2.0.min.js"></script>
 		<script src="js/nexusUI.js"></script>
 		<meta name="viewport" content="width=device-width">
@@ -14,6 +14,7 @@
 		
 		
 		<!-- THIS IS THE VISUAL PART (HTML) -->
+		
 		<canvas nx="tilt" style="float:left;height:50px;width:50px"></canvas>&nbsp;
 		<canvas nx="select" choices="1,2,3,4" style="height:50px;width:50px"></canvas><br><br>
 		
@@ -28,34 +29,8 @@
 		<!-- THIS IS THE JAVASCRIPT BRAIN -->
 		
 		<script>
-		
-		
-		
-	
-	/*	
-		tiltx - freq ?
-			set freq;
-			sin.frequency = Add(fmod, freq);
-		
-		prox1 (1-4)  - AM - 
-			set am
-			amod.frequency = am;
-		prox2 (2-1) - harm - 
-			set harm
-			harm.frequency = (freq*harm*modi);
-			harm.amp = (freq*harm);
-		prox 3 (3-2)
-			set modi 
-			harm.frequency = (freq*harm*modi)
-		prox 4(4-3) 
-			set oct
-			sin2.amp = (oct*amod);
-	*/		
 
-			var socket = io.connect('http://96.125.51.9:8080');
-		//	var socket = io.connect('http://96.125.50.33:8080');
-		
-		
+			var socket = io.connect('http://10.0.1.101:8080');
 			var freq = 500;
 			var playerNum = 0;
 			
@@ -72,17 +47,12 @@
 						freq += Math.pow((data[0]*10),2)/(-5);
 						
 					}
-		
-					sin.frequency = Add(fmod, freq);
-					fmod.frequency = (freq*harm);
-					fmod.amp = (freq*harm*modi);
-					sin2.frequency = Add(fmod, (freq*2));
+				//	$("#debug").html(freq);
 					
+					var myinfo = [freq, data[1], playerNum]
 					
-					
-					var myinfo = [freq, data[1], playerNum];
 					socket.emit('tiltdata', myinfo);
-					
+					//calculateMe(data);
 				}
 				
 				select1.localTransmit = function(data){
@@ -97,37 +67,13 @@
 				
 			}
 			
-		
-		function setam(data) {
-			console.log(data);
-			am = data * 5;
-			amod.frequency = am;
-		}
-		
-		function setfm1(data) {
-			harm = data * 4;
-			harm.frequency = (freq*harm*modi);
-			harm.amp = (freq*harm);
-		}
-		
-		function setfm2(data) {
-			modi = data * 8;
-			harm.frequency = (freq*harm*modi)
-		}
-		
-		function setoct(data) {
-			oct = data;
-			sin2.amp = Multiply(oct, amod);
-		}	
-			
-			
 		var personL = false;
 		var personR = false;
 		var intervalL, intervalR;
 		var effectL, effectR, nonEffect1, nonEffect2;
 		var proxL, proxR;
 		var intervals = [0.125, 3, 1.667, 1.6];
-		var effects = [setam, setfm1, setfm2, setoct];
+	//	var effects = [am, fm1, fm2, oct];
 		var maxedOut = false;
 		
 		// effectL and effectR follow proxes, others ramp if near 1
@@ -153,12 +99,6 @@
 				nx.clip(proxL, 0, 1);
 				$("#debug").html("freq: "+freq+"<br>proxL: "+proxL+"<br>proxR: "+proxR);
 				
-				
-				
-				
-				effectL(proxL);
-				effectR(proxR);
-				
 				var myEffects = [
 						{
 							"type": effectL, 
@@ -172,12 +112,7 @@
 						}
 					
 				]
-				
-				//sonify proxL and proxR
-				
-			
-				
-			//	socket.emit('sendeffects', myEffects);
+				socket.emit('sendeffects', myEffects);
 				
 				if (proxL>0.95 || proxR>0.95) {
 					if (!maxedOut) {
@@ -194,9 +129,7 @@
 							}
 						
 						]
-						nonEffect1(1);
-						nonEffect2(1);
-					//	socket.emit('sendeffects', myEffects);
+						socket.emit('sendeffects', myEffects);
 						maxedOut = true;
 					}
 				} else {
@@ -214,9 +147,7 @@
 							}
 						
 						]
-						nonEffect1(0);
-						nonEffect2(0);
-					//	socket.emit('sendeffects', myEffects);
+						socket.emit('sendeffects', myEffects);
 						maxedOut = false;
 					}
 					
@@ -224,6 +155,7 @@
 			}
 			
 		});
+		
 		
 		
 		// DRAWING
@@ -312,41 +244,15 @@
 		Gibberish.init()
 		Gibberish.Time.export()
 		Gibberish.Binops.export()
+					
+		mod1 = new Gibberish.Sine(40, 0);
+		mod2 = new Gibberish.Sine(.1, 1); 
+		mod1.amp = mod2;
+		// freq, amp
+		//sin = new Gibberish.Sine( Add(mod1, 440), .25 ).connect();
+		sin = new Gibberish.Sine( 200, Add(mod1, 0.5) ).connect();
 
-		freq = 440;
-		am = 5;
-		harm = 1;
-		modi = 1;
-		oct = 0.15;
-		amp = 0.25;
-
-		fmod = new Gibberish.Sine((freq*harm), (freq*harm*modi));
-				
-		amod = new Gibberish.Sine(am, 0.25);
-		
-		sin = new Gibberish.Sine( Add(fmod, freq), amod ).connect();
-		sin2 = new Gibberish.Sine( Add(fmod, (freq*2)), Mul(oct,amod)).connect();
-	
-	
-	/*	
-		tiltx - freq ?
-			set freq;
-			sin.frequency = Add(fmod, freq);
-		
-		prox1 (1-4)  - AM - 
-			set am
-			amod.frequency = am;
-		prox2 (2-1) - harm - 
-			set harm
-			harm.frequency = (freq*harm*modi);
-			harm.amp = (freq*harm);
-		prox 3 (3-2)
-			set modi 
-			harm.frequency = (freq*harm*modi)
-		prox 4(4-3) 
-			set oct
-			sin2.amp = (oct*amod);
-	*/		
+			
 		
 		</script>
 		
